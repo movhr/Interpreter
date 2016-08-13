@@ -36,6 +36,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Windows.Presentation" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -53,11 +54,20 @@
     <Compile Include="IntDevEnv.Designer.cs">
       <DependentUpon>IntDevEnv.cs</DependentUpon>
     </Compile>
+    <Compile Include="MethodExaminationWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MethodExaminationWindow.Designer.cs">
+      <DependentUpon>MethodExaminationWindow.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="ProgrammingLanguage.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="IntDevEnv.resx">
       <DependentUpon>IntDevEnv.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MethodExaminationWindow.resx">
+      <DependentUpon>MethodExaminationWindow.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>

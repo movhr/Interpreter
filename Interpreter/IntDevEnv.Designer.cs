@@ -1,4 +1,7 @@
-﻿namespace Interpreter
+﻿using System.Security.AccessControl;
+using System.Windows.Forms;
+
+namespace Interpreter
 {
     partial class IntDevEnv
     {
@@ -28,32 +31,48 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(IntDevEnv));
             this.richTextBox1 = new System.Windows.Forms.RichTextBox();
             this.interpretButton = new System.Windows.Forms.Button();
             this.debugButton = new System.Windows.Forms.Button();
-            this.dataGridView1 = new System.Windows.Forms.DataGridView();
+            this.programVariablesCollection = new System.Windows.Forms.DataGridView();
             this.VariableName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.VariableValue = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.dataGridView2 = new System.Windows.Forms.DataGridView();
+            this.programMethodsCollection = new System.Windows.Forms.DataGridView();
             this.MethodName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.nExpressions = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.debugStepButton = new System.Windows.Forms.Button();
             this.exitDebugButton = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridView2)).BeginInit();
+            this.splitContainer1 = new System.Windows.Forms.SplitContainer();
+            this.statusStrip1 = new System.Windows.Forms.StatusStrip();
+            this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
+            ((System.ComponentModel.ISupportInitialize)(this.programVariablesCollection)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.programMethodsCollection)).BeginInit();
             this.groupBox1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
+            this.splitContainer1.Panel1.SuspendLayout();
+            this.splitContainer1.Panel2.SuspendLayout();
+            this.splitContainer1.SuspendLayout();
+            this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // richTextBox1
             // 
-            this.richTextBox1.Location = new System.Drawing.Point(13, 13);
+            this.richTextBox1.AcceptsTab = true;
+            this.richTextBox1.BackColor = System.Drawing.Color.Black;
+            this.richTextBox1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.richTextBox1.Font = new System.Drawing.Font("Consolas", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.richTextBox1.ForeColor = System.Drawing.Color.Lime;
+            this.richTextBox1.Location = new System.Drawing.Point(201, 0);
+            this.richTextBox1.Margin = new System.Windows.Forms.Padding(30, 3, 30, 3);
             this.richTextBox1.Name = "richTextBox1";
-            this.richTextBox1.Size = new System.Drawing.Size(219, 234);
+            this.richTextBox1.Size = new System.Drawing.Size(419, 427);
             this.richTextBox1.TabIndex = 0;
-            this.richTextBox1.Text = "var aval = 5;\nsub somefun(avalue) { avalue = 10; }\nsomefun(aval);";
-            this.richTextBox1.TextChanged += new System.EventHandler(this.richTextBox1_TextChanged);
+            this.richTextBox1.Text = resources.GetString("richTextBox1.Text");
+            this.richTextBox1.KeyDown += new System.Windows.Forms.KeyEventHandler(this.richTextBox1_KeyDown);
+            this.richTextBox1.KeyUp += new System.Windows.Forms.KeyEventHandler(this.richTextBox1_KeyUp);
             // 
             // interpretButton
             // 
@@ -61,7 +80,7 @@
             this.interpretButton.Name = "interpretButton";
             this.interpretButton.Size = new System.Drawing.Size(75, 23);
             this.interpretButton.TabIndex = 1;
-            this.interpretButton.Text = "Interpret";
+            this.interpretButton.Text = "Run";
             this.interpretButton.UseVisualStyleBackColor = true;
             this.interpretButton.Click += new System.EventHandler(this.interpretButton_Click);
             // 
@@ -75,45 +94,51 @@
             this.debugButton.UseVisualStyleBackColor = true;
             this.debugButton.Click += new System.EventHandler(this.debugButton_Click);
             // 
-            // dataGridView1
+            // programVariablesCollection
             // 
-            this.dataGridView1.AllowUserToAddRows = false;
-            this.dataGridView1.AllowUserToDeleteRows = false;
-            this.dataGridView1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridView1.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.programVariablesCollection.AllowUserToAddRows = false;
+            this.programVariablesCollection.AllowUserToDeleteRows = false;
+            this.programVariablesCollection.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.programVariablesCollection.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.programVariablesCollection.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.VariableName,
             this.VariableValue});
-            this.dataGridView1.Location = new System.Drawing.Point(239, 13);
-            this.dataGridView1.Name = "dataGridView1";
-            this.dataGridView1.ReadOnly = true;
-            this.dataGridView1.Size = new System.Drawing.Size(245, 114);
-            this.dataGridView1.TabIndex = 3;
+            this.programVariablesCollection.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.programVariablesCollection.Location = new System.Drawing.Point(0, 0);
+            this.programVariablesCollection.MultiSelect = false;
+            this.programVariablesCollection.Name = "programVariablesCollection";
+            this.programVariablesCollection.RowHeadersVisible = false;
+            this.programVariablesCollection.Size = new System.Drawing.Size(201, 212);
+            this.programVariablesCollection.TabIndex = 3;
             // 
             // VariableName
             // 
             this.VariableName.HeaderText = "Variable Name";
             this.VariableName.Name = "VariableName";
-            this.VariableName.ReadOnly = true;
             // 
             // VariableValue
             // 
             this.VariableValue.HeaderText = "Variable Value";
             this.VariableValue.Name = "VariableValue";
-            this.VariableValue.ReadOnly = true;
             // 
-            // dataGridView2
+            // programMethodsCollection
             // 
-            this.dataGridView2.AllowUserToAddRows = false;
-            this.dataGridView2.AllowUserToDeleteRows = false;
-            this.dataGridView2.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            this.dataGridView2.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.programMethodsCollection.AllowUserToAddRows = false;
+            this.programMethodsCollection.AllowUserToDeleteRows = false;
+            this.programMethodsCollection.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.programMethodsCollection.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this.programMethodsCollection.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.MethodName,
             this.nExpressions});
-            this.dataGridView2.Location = new System.Drawing.Point(239, 133);
-            this.dataGridView2.Name = "dataGridView2";
-            this.dataGridView2.ReadOnly = true;
-            this.dataGridView2.Size = new System.Drawing.Size(245, 114);
-            this.dataGridView2.TabIndex = 4;
+            this.programMethodsCollection.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.programMethodsCollection.Location = new System.Drawing.Point(0, 0);
+            this.programMethodsCollection.MultiSelect = false;
+            this.programMethodsCollection.Name = "programMethodsCollection";
+            this.programMethodsCollection.ReadOnly = true;
+            this.programMethodsCollection.RowHeadersVisible = false;
+            this.programMethodsCollection.Size = new System.Drawing.Size(201, 211);
+            this.programMethodsCollection.TabIndex = 4;
+            this.programMethodsCollection.CellMouseDoubleClick += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.methodCollection_DoubleClick);
             // 
             // MethodName
             // 
@@ -135,12 +160,13 @@
             this.groupBox1.Controls.Add(this.interpretButton);
             this.groupBox1.Controls.Add(this.debugButton);
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Right;
-            this.groupBox1.Location = new System.Drawing.Point(495, 0);
+            this.groupBox1.Location = new System.Drawing.Point(620, 0);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(92, 255);
+            this.groupBox1.Size = new System.Drawing.Size(111, 427);
             this.groupBox1.TabIndex = 5;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Controls";
+            this.groupBox1.Enter += new System.EventHandler(this.groupBox1_Enter);
             // 
             // debugStepButton
             // 
@@ -171,23 +197,65 @@
             this.label1.TabIndex = 3;
             this.label1.Text = "Debugging";
             // 
+            // splitContainer1
+            // 
+            this.splitContainer1.Dock = System.Windows.Forms.DockStyle.Left;
+            this.splitContainer1.Location = new System.Drawing.Point(0, 0);
+            this.splitContainer1.MinimumSize = new System.Drawing.Size(200, 200);
+            this.splitContainer1.Name = "splitContainer1";
+            this.splitContainer1.Orientation = System.Windows.Forms.Orientation.Horizontal;
+            // 
+            // splitContainer1.Panel1
+            // 
+            this.splitContainer1.Panel1.Controls.Add(this.programVariablesCollection);
+            // 
+            // splitContainer1.Panel2
+            // 
+            this.splitContainer1.Panel2.Controls.Add(this.programMethodsCollection);
+            this.splitContainer1.Size = new System.Drawing.Size(201, 427);
+            this.splitContainer1.SplitterDistance = 212;
+            this.splitContainer1.TabIndex = 6;
+            // 
+            // statusStrip1
+            // 
+            this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripStatusLabel1});
+            this.statusStrip1.Location = new System.Drawing.Point(0, 427);
+            this.statusStrip1.Name = "statusStrip1";
+            this.statusStrip1.Size = new System.Drawing.Size(731, 22);
+            this.statusStrip1.TabIndex = 7;
+            this.statusStrip1.Text = "statusStrip1";
+            // 
+            // toolStripStatusLabel1
+            // 
+            this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
+            this.toolStripStatusLabel1.Size = new System.Drawing.Size(0, 17);
+            // 
             // IntDevEnv
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(587, 255);
-            this.Controls.Add(this.groupBox1);
-            this.Controls.Add(this.dataGridView2);
-            this.Controls.Add(this.dataGridView1);
+            this.ClientSize = new System.Drawing.Size(731, 449);
             this.Controls.Add(this.richTextBox1);
+            this.Controls.Add(this.splitContainer1);
+            this.Controls.Add(this.groupBox1);
+            this.Controls.Add(this.statusStrip1);
+            this.MinimumSize = new System.Drawing.Size(700, 300);
             this.Name = "IntDevEnv";
-            this.Text = "Form1";
+            this.Text = "IDE for programming language";
             this.Load += new System.EventHandler(this.Form1_Load);
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridView1)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this.dataGridView2)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.programVariablesCollection)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.programMethodsCollection)).EndInit();
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
+            this.splitContainer1.Panel1.ResumeLayout(false);
+            this.splitContainer1.Panel2.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).EndInit();
+            this.splitContainer1.ResumeLayout(false);
+            this.statusStrip1.ResumeLayout(false);
+            this.statusStrip1.PerformLayout();
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -196,16 +264,19 @@
         private System.Windows.Forms.RichTextBox richTextBox1;
         private System.Windows.Forms.Button interpretButton;
         private System.Windows.Forms.Button debugButton;
-        private System.Windows.Forms.DataGridView dataGridView1;
+        private System.Windows.Forms.DataGridView programVariablesCollection;
         private System.Windows.Forms.DataGridViewTextBoxColumn VariableName;
         private System.Windows.Forms.DataGridViewTextBoxColumn VariableValue;
-        private System.Windows.Forms.DataGridView dataGridView2;
-        private System.Windows.Forms.DataGridViewTextBoxColumn MethodName;
-        private System.Windows.Forms.DataGridViewTextBoxColumn nExpressions;
+        private System.Windows.Forms.DataGridView programMethodsCollection;
         private System.Windows.Forms.GroupBox groupBox1;
         private System.Windows.Forms.Button debugStepButton;
         private System.Windows.Forms.Button exitDebugButton;
         private System.Windows.Forms.Label label1;
+        private DataGridViewTextBoxColumn MethodName;
+        private DataGridViewTextBoxColumn nExpressions;
+        private SplitContainer splitContainer1;
+        private StatusStrip statusStrip1;
+        private ToolStripStatusLabel toolStripStatusLabel1;
     }
 }
 
