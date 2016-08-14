@@ -129,7 +129,7 @@ sub emptyfun(){
 
 sub somefun(avalue, bvalue) { 
 	avalue = 10; 
-	bvalue = bvalue * avalue;
+	return bvalue * avalue;
 }
 
 newval = newval * aval;
@@ -138,7 +138,7 @@ var helloworld = sometext + " world";
 
 var precisionHalved = precision / 2 - 0.5;
 
-somefun(aval, newval);
+var newexpression = somefun(aval, newval);
 emptyfun();</value>
   </data>
   <metadata name="VariableName.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">

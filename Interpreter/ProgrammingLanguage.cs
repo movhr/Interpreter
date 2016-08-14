@@ -12,54 +12,75 @@ namespace Interpreter
 
         #region Helpers
 
-        /// <summary> Returns true if source is a methodCall, passing further information onto the methodCall argument </summary>
-        private static bool IsMethod(string source, out MethodCall methodCall)
+        /// <summary> Returns true if source is a methodCall, passing details onto the methodCall argument, also specifying the rest of the string in</summary>
+        private static bool IsMethod(string source, out MethodCall methodCall, out string rest)
         {
+            rest = source;
             methodCall = null;
-            var splittedSource = source.Split(' ');
-            var firstEvidence = splittedSource[0].IndexOf('(');
+            var firstEvidence = source.Split(' ')[0].IndexOf('(');
             if (firstEvidence == -1)
                 return false;
 
-            var secondEvidence = splittedSource.Last().LastIndexOf(')');
+            var secondEvidence = source.IndexOf(')');
             if(secondEvidence == -1)
                 throw new ArgumentException($"Something's wrong here");
-
-            var methodInfo = ExtractMethodNameAndArguments(source);
-            methodCall = new MethodCall(methodInfo.Item1, methodInfo.Item2);
+            
+            IEnumerable<string> arguments;
+            var methodName = ExtractMethodNameAndArguments(source, out arguments, out rest);
+            methodCall = new MethodCall(methodName, arguments);
             return true;
         }
-        
-        private static Variable Evaluate(string source) // sometext = "hello"; [var newtxt = [sometext + " world"]]; // should become ["hello world"]
-        {
-            //To evaluate expressions:
-            //1. split the source into three where delimiter is ' '
-            //1.1. if the first bit contains a quote('\"'), find the next quote and merge the parts inbetween as the first bit
-            //2. evaluate the right bit
-            //3. create new operator expression, evaluate and return
 
-            var methodInfo = MethodCall.Empty();
+        private static Variable Evaluate(string source)
+        {
+            string x;
+            return Evaluate(source,  out x);
+        }
+        
+        private static Variable Evaluate(string source, out string rest)
+        {
+            MethodCall methodInfo;
             var splittedSource = source.Split(new [] {' '},3, StringSplitOptions.RemoveEmptyEntries);
-            if(source[0] == '\"')//plain strings will always start with a quote
+
+            //DEBUG
+            if (splittedSource[0].Contains("somefun"))
+                rest = "";
+
+            //Check if source contains a plain string
+            if (source[0] == '\"')//plain strings will always start with a quote
             {
-                var secondQuote = source.IndexOf('\"', 1);
-                var firstExpression = '\"' + Substring(source, 1, secondQuote-1) + '\"';
+                var secondQuote = source.IndexOf('\"', 1); //find last quote index
+                var firstExpression = '\"' + Substring(source, 1, secondQuote-1) + '\"'; //take plain string out
                 splittedSource = new []{firstExpression}.Concat(source.Remove(0, firstExpression.Length).Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries)).ToArray();
+                if (splittedSource.Count() == 1)
+                {
+                    rest = "";
+                    return Variable.Get(splittedSource[0]);
+                }
+                throw new Exception("Unhandled case");
             }
 
-            if (splittedSource.Length != 1 && splittedSource.Length != 3) //just in case (theoretically this can never occur)
-                throw new NotSupportedException($"Something is wrong with this: {splittedSource}");
-
+            //source can be a single variable or a method (empty or without space-separated arguments)
             if (splittedSource[0] == source)
-                return IsMethod(source, out methodInfo) ? methodInfo.Evaluate() : Variable.Get(splittedSource[0]);
+                return IsMethod(source, out methodInfo, out rest) ? methodInfo.Evaluate() : Variable.Get(splittedSource[0]);
 
-            if (!IsMethod(splittedSource[0], out methodInfo))
+            //ensure first expression is a method. Evaluate method and evaluate right expression (if there is any)
+            if (IsMethod(source, out methodInfo, out rest))
+            {
+                if(rest.Length > 0)
+                    throw new Exception("Checkup");
+                return methodInfo.Evaluate();
+            }
+
+            //ensure first expression is not a method and evaluate left and right expression with operator
+            if (!IsMethod(splittedSource[0], out methodInfo, out rest))
                 return Operator.Get(splittedSource[1], Evaluate(splittedSource[0]), Evaluate(splittedSource[2])).Evaluate();
             
             throw new Exception("I don't know what to do now!");
         }
 
-        private static string Substring(string str, int startIndex, int endIndex) => str.Substring(startIndex, endIndex - startIndex + 1);
+        ///<summary>Adds one to the endIndex and returns string between startIndex and endIndex</summary>
+        private static string Substring(string str, int startIndex, int endIndex) => str.Substring(startIndex, endIndex - startIndex+1);
 
         private static IEnumerable<int> FindAllChars(string str, char subStr)
         {
@@ -78,19 +99,26 @@ namespace Interpreter
             }
         }
 
-        private static Tuple<string, IEnumerable<string>> ExtractMethodNameAndArguments(string signature)
+        private static string ExtractMethodNameAndArguments(string signature, out IEnumerable<string> arguments)
+        {
+            string x;
+            return ExtractMethodNameAndArguments(signature, out arguments, out x);
+        }
+
+        private static string ExtractMethodNameAndArguments(string signature, out IEnumerable<string> arguments, out string rest)
         {
             //Extract method name
             var iEnd = signature.IndexOf("(", StringComparison.Ordinal);
             var iStart = signature.LastIndexOf(" ", iEnd, StringComparison.Ordinal) + 1;
-            iStart = iStart == -1 ? 0 : iStart;
-            var methodName = signature.Substring(iStart, iEnd - iStart);
+            iStart = iStart == -1 ? 0 : iStart; //When its a plain methodCall, there won't be any whitespaces
+            var methodName = Substring(signature, iStart, iEnd-1);
 
             //Extract arguments
             iStart = iEnd + 1; //inc to mark starting position of first argument
             iEnd = signature.IndexOf(")", iStart, StringComparison.Ordinal);
-            var argumentNames = signature.Substring(iStart, iEnd - iStart).Split(new []{','}, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Replace(" ", ""));
-            return new Tuple<string, IEnumerable<string>>(methodName, argumentNames);
+            arguments = Substring(signature, iStart, iEnd-1).Split(new []{','}, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Replace(" ", "")).ToArray();
+            rest = Substring(signature, iEnd + 1, signature.Length-1);
+            return methodName;
         }
 
         private static List<IExpression> AddExpressionToList(List<IExpression> listToBeUpdated,
@@ -306,14 +334,14 @@ namespace Interpreter
 
         public class ReturnStmt : IExpression
         {
-            public Variable ReturnValue;
+            public string ReturnValue;
 
-            public ReturnStmt(Variable val)
+            public ReturnStmt(string val)
             {
                 ReturnValue = val;
             }
 
-            public Variable Evaluate() => ReturnValue;
+            public Variable Evaluate() => Interpreter.Evaluate(ReturnValue);
         }
 
         public class MethodDeclaration : IExpression
@@ -438,16 +466,20 @@ namespace Interpreter
 
         public static MethodDeclaration MakeMethodDecl(string signature, string body)
         {
-            var methodInfo = ExtractMethodNameAndArguments(signature);
+            IEnumerable<string> args;
+            var methodName = ExtractMethodNameAndArguments(signature, out args);
             var functionBody = body.Substring(body.IndexOf("{", StringComparison.Ordinal) + 1, body.LastIndexOf("}", StringComparison.Ordinal) - 1); //dec & inc to avoid brackets
-            return new MethodDeclaration(methodInfo.Item1, methodInfo.Item2.ToArray(), MakeProgram(new List<IExpression>(), functionBody));
+            return new MethodDeclaration(methodName, args.ToArray(), MakeProgram(new List<IExpression>(), functionBody));
         }
 
         public static MethodCall MakeMethodCall(string expression)
         {
-            var methodInfo = ExtractMethodNameAndArguments(expression);
-            return new MethodCall(methodInfo.Item1, methodInfo.Item2);
+            IEnumerable<string> args;
+            var methodName = ExtractMethodNameAndArguments(expression, out args);
+            return new MethodCall(methodName, args);
         }
+        
+        public static ReturnStmt MakeReturnStmt(string expression) => new ReturnStmt(expression.Split(new []{' '}, 2, StringSplitOptions.RemoveEmptyEntries)[1]);
 
         public static IEnumerable<IExpression> MakeProgram(List<IExpression> programCode, string programText)
         {
@@ -475,7 +507,8 @@ namespace Interpreter
                 return MakeProgram(AddExpressionToList(programCode, MakeMethodCall(curLine)), BeheadString(programText));
             if (curLineSplitted?[1] == "=")
                 return MakeProgram(AddExpressionToList(programCode, MakeVarAss(curLineSplitted)), BeheadString(programText));
-
+            if (curLineSplitted?[0] == "return")
+                return MakeProgram(AddExpressionToList(programCode, MakeReturnStmt(curLine)),BeheadString(programText));
             throw new NotSupportedException($"Unhandled line of code: {curLine}");
         }
 
@@ -512,23 +545,55 @@ namespace Interpreter
             {
                 public LineEndingError(int lineNumber, string codeline) : base(lineNumber, codeline, "Line is invalidly ended") { }
             }
+
+            public class EmptyFunctionError : ProgramError
+            {
+                public EmptyFunctionError(int lineNumber, string functionSignature) : base(lineNumber, functionSignature, "Function has no body") { }
+            }
         }
 
+        /// <summary>
+        /// Checks whether all code lines are validly ended.
+        /// </summary>
+        /// <param name="code"></param>
+        /// <returns></returns>
         public static ProgramError CheckLineEndings(string code)
         {
-            //find all line endings
-            //if there is a correct line ending character then check the next one, else the line is incorrectly ended and
             var scannableCode = code.Replace(" ", "");
             var acceptedLineEndings = new[] {';', '}', '{', '\n', '\t'};
-            for (int lineNumber = 0, lastLineEnding = 0, lineEnding = scannableCode.IndexOf('\n'); lineEnding != -1; lastLineEnding = lineEnding, lineEnding = scannableCode.IndexOf('\n', lastLineEnding+1), lineNumber++)
+            for (int lineNumber = 0, lastLineEnding = 0, lineEnding = scannableCode.IndexOf('\n'); 
+                lineEnding != -1; 
+                lastLineEnding = lineEnding, lineEnding = scannableCode.IndexOf('\n', lastLineEnding+1), lineNumber++)
                 if (!acceptedLineEndings.Contains(scannableCode[lineEnding - 1]))
                     return new ProgramError.LineEndingError(lineNumber,Substring(scannableCode, lastLineEnding, lineEnding));
+            return ProgramError.Empty();
+        }
+
+
+        /// <summary>
+        /// Checks whether all functions have a body.
+        /// </summary>
+        /// <param name="code"></param>
+        /// <returns></returns>
+        public static ProgramError CheckEmptyFunctions(string code)
+        {
+            var scannableCode = code.Replace(" ", "").Replace('\t'.ToString(), "").Replace('\n'.ToString(), "");
+            for (int lineNumber = 0, firstBracket = scannableCode.IndexOf('{'), secondBracket = scannableCode.IndexOf('}', firstBracket), functionNameStart = scannableCode.LastIndexOf("sub", firstBracket, StringComparison.Ordinal) + 3;
+                firstBracket != -1;
+                firstBracket = scannableCode.IndexOf('{', secondBracket), secondBracket = scannableCode.IndexOf('}'), lineNumber++
+                )
+                if(secondBracket - firstBracket == 1)
+                    return new ProgramError.EmptyFunctionError(lineNumber, Substring(scannableCode, functionNameStart, firstBracket-1));
             return ProgramError.Empty();
         }
 
         public static bool RunCodeInspection(string code, out ProgramError exceptionInfo)
         {
             exceptionInfo = CheckLineEndings(code);
+            if (exceptionInfo.IsSet())
+                return false;
+
+            exceptionInfo = CheckEmptyFunctions(code);
             if (exceptionInfo.IsSet())
                 return false;
 
