@@ -30,34 +30,38 @@ namespace Interpreter
 
             //Do the action and add program variables + methods
             var initResult = Interpreter.Start(richTextBox1.Text, "interpret");
-            if (initResult != null)
+            if (initResult == null)
             {
-                toolStripStatusLabel1.Text = ($"Error at line {initResult.CodeLine}: {initResult.ErrorInfo}.");
-                MessageBox.Show($"Error at: {initResult.CodeLine}.\n{initResult.ErrorInfo}.");
-            }
-            Interpreter.ProgramVariables.ToList().ForEach(pair => programVariablesCollection.Rows.Add(new DataGridViewRow
-            {
-                Cells = {
+                Interpreter.ProgramVariables.ToList().ForEach(pair => programVariablesCollection.Rows.Add(new DataGridViewRow
+                {
+                    Cells = {
                     new DataGridViewTextBoxCell {Value = pair.Key},
                     new DataGridViewTextBoxCell {Value = pair.Value.Value}
                 }
-            }));
-            Interpreter.ProgramMethods.ToList().ForEach(pair => programMethodsCollection.Rows.Add(new DataGridViewRow
-            {
-                Cells =
+                }));
+                Interpreter.ProgramMethods.ToList().ForEach(pair => programMethodsCollection.Rows.Add(new DataGridViewRow
+                {
+                    Cells =
                 {
                     new DataGridViewTextBoxCell {Value = pair.Key},
                     new DataGridViewTextBoxCell {Value = pair.Value.Body.Count()}
                 }
-            }));
+                }));
+
+                toolStripStatusLabel1.Text = @"Success!";
+            }
+            else
+                {
+                    toolStripStatusLabel1.Text = ($"Error at line {initResult.CodeLine}: {initResult.ErrorInfo}.");
+                    MessageBox.Show($"Error at: {initResult.CodeLine}.\n{initResult.ErrorInfo}.");
+                }
+
 
             //Re-enable user interaction
             debugButton.Enabled = true;
             debugStepButton.Enabled = true;
             exitDebugButton.Enabled = true;
             interpretButton.Enabled = true;
-            if (initResult == null)
-                toolStripStatusLabel1.Text = @"Success!";
         }
 
         private void methodCollection_DoubleClick(object sender, EventArgs e) =>

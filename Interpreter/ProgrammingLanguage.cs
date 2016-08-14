@@ -568,8 +568,7 @@ namespace Interpreter
                     return new ProgramError.LineEndingError(lineNumber,Substring(scannableCode, lastLineEnding, lineEnding));
             return ProgramError.Empty();
         }
-
-
+        
         /// <summary>
         /// Checks whether all functions have a body.
         /// </summary>
@@ -580,7 +579,7 @@ namespace Interpreter
             var scannableCode = code.Replace(" ", "").Replace('\t'.ToString(), "").Replace('\n'.ToString(), "");
             for (int lineNumber = 0, firstBracket = scannableCode.IndexOf('{'), secondBracket = scannableCode.IndexOf('}', firstBracket), functionNameStart = scannableCode.LastIndexOf("sub", firstBracket, StringComparison.Ordinal) + 3;
                 firstBracket != -1;
-                firstBracket = scannableCode.IndexOf('{', secondBracket), secondBracket = scannableCode.IndexOf('}'), lineNumber++
+                firstBracket = scannableCode.IndexOf('{', secondBracket), secondBracket = firstBracket >= 0 ? scannableCode.IndexOf('}', firstBracket) : 0, lineNumber++
                 )
                 if(secondBracket - firstBracket == 1)
                     return new ProgramError.EmptyFunctionError(lineNumber, Substring(scannableCode, functionNameStart, firstBracket-1));
@@ -635,12 +634,14 @@ namespace Interpreter
             InputCode = code;
             ProgramStartupError = ProgramError.Empty();
             success = RunCodeInspection(InputCode, out ProgramStartupError);
-            
+            if(!success)
+                return ProgramStartupError;
+
             //Initialize virtual machine
             ProgramMethods = new Dictionary<string, MethodDeclaration>();
             ProgramVariables = new Dictionary<string, Variable>();
             ProgramCode = new List<IExpression>(MakeProgram(new List<IExpression>(), code));
-            return ProgramStartupError;
+            return null;
         }
 
         private static int _ip = -1;
