@@ -123,8 +123,8 @@ var sometext = "hello";
 var precision = 1.3000;
 var newval = 10;
 
-sub emptyfun(){
-	return 0;
+sub one(){
+	return 1;
 }
 
 sub somefun(avalue, bvalue) { 
@@ -138,8 +138,10 @@ var helloworld = sometext + " world";
 
 var precisionHalved = precision / 2 - 0.5;
 
-var newexpression = somefun(aval, newval);
-emptyfun();</value>
+var newexpression = somefun(aval, newval) / 2;
+
+var ultimateExpression = ( 50 + somefun(aval, precisionHalved) ) - one() * 1.2;
+one();</value>
   </data>
   <metadata name="VariableName.UserAddedColumn" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>

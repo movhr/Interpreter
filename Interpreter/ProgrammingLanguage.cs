@@ -1,17 +1,25 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
 using System.Linq;
+using System.Windows.Forms.VisualStyles;
 
 namespace Interpreter
 {
-    internal class Interpreter
+    class Interpreter
     {
         #region Helpers
 
-        /// <summary> Returns true if source is a methodCall, passing details onto the methodCall argument, also specifying the rest of the string in</summary>
-        private static bool IsMethod(string source, out MethodCall methodCall, out string rest)
+        /// <summary> Returns true if source is a methodCall, passing details onto the methodCall argument, also returning the rest of the string</summary>
+        private static bool IsMethod(string source, out MethodCall methodCall)
+        {
+            string nothing;
+            return IsMethod(source, out methodCall, out nothing);
+        }
+
+        private static bool IsMethod(string source, out MethodCall methodCall, out string rest) //has kinda useless body
         {
             rest = source;
             methodCall = null;
@@ -29,15 +37,37 @@ namespace Interpreter
             return true;
         }
 
+        private static Variable EvaluateSingle(string source, out MethodCall methodInfo) => IsMethod(source, out methodInfo) ? methodInfo.Evaluate() : Variable.Get(source);
+
+
+        /// <summary>
+        /// Returns a string containing everything between before lastIndex and its rightmost whitespace (or other character)
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="ch"></param>
+        /// <param name="lastIndex"></param>
+        /// <returns></returns>
+        private static string WrapUntil(string source, int lastIndex, char ch = ' ') => Substring(source, source.LastIndexOf(ch, lastIndex), lastIndex-1);
+
+        private static string WrapFrom(string source, int index, char ch = ' ') => Substring(source, source.IndexOf(ch, index), index - 1);
+
         private static Variable Evaluate(string source)
         {
-            string x;
-            return Evaluate(source,  out x);
+            string nothing;
+            return Evaluate(source, out nothing);
         }
-        
+
         private static Variable Evaluate(string source, out string rest)
         {
+            //Remove parenthesis if expression is wrapped by them
+            rest = "";
             MethodCall methodInfo;
+            source = source.Trim(' ');
+
+
+            if (source[0] == '(' && source[source.Length - 1] == ')')
+                return Evaluate(Substring(source, 1, source.Length - 1));
+
             var splittedSource = source.Split(new [] {' '},3, StringSplitOptions.RemoveEmptyEntries);
 
             //Check if source contains a plain string
@@ -45,51 +75,99 @@ namespace Interpreter
             {
                 var secondQuote = source.IndexOf('\"', 1); //find last quote index
                 var firstExpression = '\"' + Substring(source, 1, secondQuote-1) + '\"'; //take plain string out
-                splittedSource = new []{firstExpression}.Concat(source.Remove(0, firstExpression.Length).Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries)).ToArray();
-                if (splittedSource.Count() == 1)
-                {
-                    rest = "";
-                    return Variable.Get(splittedSource[0]);
-                }
-                throw new Exception("Unhandled case");
+                splittedSource = new []{firstExpression}.Concat(source.Remove(0, firstExpression.Length).Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries)).ToArray(); //glue the string back together
+                if (splittedSource.Count() != 1) throw new Exception("Unhandled case");
+                return new Text(splittedSource[0]);
             }
 
             //source can be a single variable or a method (empty or without space-separated arguments)
             if (splittedSource[0] == source)
-                return IsMethod(source, out methodInfo, out rest) ? methodInfo.Evaluate() : Variable.Get(splittedSource[0]);
+                return EvaluateSingle(source, out methodInfo).Evaluate();
 
-            //if first expression is a method, evaluate method and evaluate right expression with operator (if there is any)
-            //else evaluate left and right expression with operator.
-            if (IsMethod(source, out methodInfo, out rest))
+            //At this point there is a string of expressions which have to be evaluated, most likely containing operators
+            //TODO: Perfect PEMDAS analysis
+            #region PEMDAS analysis
+            
+            var e = source.IndexOf('^');
+            var m = source.IndexOf('*');
+            var d = source.IndexOf('/');
+            var a = source.IndexOf('+');
+            var s = source.IndexOf('-');
+            
+            //Evaluate parenthesis first, if any
+            if (splittedSource[0][0] == '(')
             {
-                if (rest.Length == 0) return methodInfo.Evaluate();
-                var splittedRest = rest.Split(new[] {' '}, 2, StringSplitOptions.RemoveEmptyEntries);
-                return Operator.Get(splittedRest[0], methodInfo.Evaluate(), Evaluate(splittedRest[1])).Evaluate();
-            }
-            return Operator.Get(splittedSource[1], Evaluate(splittedSource[0]), Evaluate(splittedSource[2])).Evaluate();
+                //get closing parenthesis of this scope
+                var scope = 1;
+                var iEnding = 1;
+                while (iEnding < source.Length)
+                {
+                    if (source[iEnding] == '(')
+                        scope++;
+                    if (source[iEnding] == ')')
+                        scope--;
+                    if (scope == 0)
+                        break;
 
-            throw new Exception("I don't know what to do now!");
+                    iEnding++;
+                }
+                var pString = Substring(source, 0, iEnding); //get p's expression definitions in source 
+                splittedSource = source.Remove(0, pString.Length)
+                    .Split(new[] {' '}, 2, StringSplitOptions.RemoveEmptyEntries);
+
+                //If this is the only operator-using expression or when this operator is superior, evaluate this block
+                if (splittedSource.Count() < 3 || Operator.IsSuperior(splittedSource[0][0],
+                    splittedSource[2].Split(new[] {' '}, StringSplitOptions.RemoveEmptyEntries)[1][0]))
+                    return Operator.Get(splittedSource[0], pString, splittedSource[1]).Evaluate();
+
+                //Now the right side expression has to be evaluated before this expression can be evaluated
+                var rightExpression = Evaluate(splittedSource[1]);
+                return Operator.Get(splittedSource[0], pString, rightExpression.Value.ToString()).Evaluate();
+            }
+
+            //Evaluate EMDAS
+
+            Func<string, int, Variable> f =
+                (x, i) =>
+                    Operator.Get(x, Substring(source, 0, i - 1), Substring(source, i + 1, source.Length - 1)).Evaluate();
+
+            if (e >= 0)
+                return f("^", e);
+            if (m >= 0)
+                return f("*", m);
+            if (d >= 0)
+                return f("/", d);
+            if (a >= 0)
+                return f("+", a);
+            if (s >= 0)
+                return f("-", s);
+            
+            #endregion
+
+            //Now pemdas analysis is over and the only possibility left is a method call
+            if (IsMethod(source, out methodInfo))
+                return methodInfo.Evaluate();
+
+
+            throw new Exception("Unknown case");
         }
 
         ///<summary>Adds one to the endIndex and returns string between startIndex and endIndex</summary>
         private static string Substring(string str, int startIndex, int endIndex) => str.Substring(startIndex, endIndex - startIndex+1);
 
-        private static IEnumerable<int> FindAllChars(string str, char subStr)
+        private static IEnumerable<int> GetCharIndices(string str, char ch)
         {
             for (var i = 0; i < str.Length; i++)
-                if (str[i] == subStr)
+                if (str[i] == ch)
                     yield return i;
         }
 
-        private static IEnumerable<Tuple<int, int>> FindAllStringIndexes(string str, string substr)
+        private static IEnumerable<Tuple<int, int>> GetCharIndices(string str, char first, char second)
         {
-            var tLast = str.IndexOf(substr, 0, StringComparison.Ordinal);
-            while (tLast != -1)
-            {
-                yield return new Tuple<int, int>(tLast, tLast+substr.Length);
-                tLast = str.IndexOf(substr, tLast, StringComparison.Ordinal);
-            }
-        }
+            var l1 = GetCharIndices(str, first).ToArray();
+            var l2 = GetCharIndices(str, second).ToArray();
+            return l1.Select((x, i) => new Tuple<int, int>(x, l2[i]));
+        } 
 
         private static string ExtractMethodNameAndArguments(string signature, out IEnumerable<string> arguments)
         {
@@ -138,18 +216,64 @@ namespace Interpreter
 
         abstract class Operator : IExpression
         {
-            protected readonly IExpression _left;
-            protected readonly IExpression _right;
+            private readonly string Op;
+            private readonly string Left;
+            private readonly string Right;
 
-            protected Operator(IExpression left, IExpression right)
+            private Variable _vLeft, _vRight;
+
+            private static string PriorityList { get; } = "-+/*^";
+
+            protected Operator(string op,string left, string right)
             {
-                _left = left;
-                _right = right;
+                Op = op;
+                Left = left;
+                Right = right;
             }
 
-            public abstract Variable Evaluate();
+            public Variable Evaluate()
+            {
+                _vLeft = _vLeft ?? Interpreter.Evaluate(Left);
+                _vRight = _vRight?? Interpreter.Evaluate(Right);
 
-            public static Operator Get(string op, IExpression left, IExpression right)
+                if(_vLeft is Text | _vRight is Text)
+                    if (Op == "+")
+                        return new Text(string.Concat(Convert.ToString(_vLeft.Value), Convert.ToString(_vRight.Value)));
+                    else
+                        throw new InvalidExpressionException("");
+
+                if ((_vLeft is Number | _vLeft is Decimal) && (_vRight is Number | _vRight is Decimal))
+                {
+                    double result;
+                    var left = Convert.ToDouble(_vLeft.Value);
+                    var right = Convert.ToDouble(_vRight.Value);
+                    switch (Op)
+                    {
+                        case "+":
+                            result = left + right;
+                            break;
+                        case "-":
+                            result = left - right;
+                            break;
+                        case "*":
+                            result = left*right;
+                            break;
+                        case "/":
+                            result = left/right;
+                            break;
+                        case "^":
+                            result = Math.Pow(left, right);
+                            break;
+                        default: throw new InvalidExpressionException("");
+                    }
+                    return result < double.Epsilon
+                        ? (Variable) new Number(Convert.ToInt32(result))
+                        : new Decimal(result);
+                }
+                throw new NotSupportedException("Unsupported case");
+            }
+
+            public static Operator Get(string op, string left, string right)
             {
                 switch (op)
                 {
@@ -157,86 +281,59 @@ namespace Interpreter
                     case "-": return new Subtraction(left, right);
                     case "*": return new Multiplication(left, right);
                     case "/": return new Division(left, right);
+                    case "^": return new Exponent(left, right);
                     default: throw new NotSupportedException($"Operator {op} not found.");
                 }
+            }
+
+            /// <summary>
+            /// Returns true if firstOperator is superior to secondOperator
+            /// </summary>
+            public static bool IsSuperior(char firstOperator, char secondOperator)
+            {
+                var i1 = 0;
+                while (PriorityList[i1] != firstOperator)
+                    i1++;
+                
+                var i2 = i1;
+                while (PriorityList[i2] != secondOperator && i2 < PriorityList.Length)
+                    i2++;
+
+                return i2 <= i1;
             }
         }
 
         class Addition : Operator
         {
-            public Addition(IExpression left, IExpression right) : base(left, right)
+            public Addition(string left, string right) : base("+", left, right)
             {
-            }
-
-            public override Variable Evaluate()
-            {
-                var l = _left.Evaluate();
-                var r = _right.Evaluate();
-                if (l is Number && r is Number)
-                    return Variable.Get(((int)l.Value + (int)r.Value).ToString(CultureInfo.CurrentCulture));
-                if ((l is Number | l is Decimal) && (r is Number | r is Decimal))
-                    return Variable.Get(((double)l.Value + (double)r.Value).ToString(CultureInfo.CurrentCulture));
-                if (l is Text && r is Text)
-                    return Variable.Get('\"' + l.Value.ToString() + r.Value + '\"' );
-                throw new InvalidExpressionException("Expressions cannot be added!");
             }
         }
 
         class Subtraction : Operator
         {
-            public Subtraction(IExpression left, IExpression right) : base(left, right)
+            public Subtraction(string left, string right) : base("-",left, right)
             {
-            }
-
-            public override Variable Evaluate()
-            {
-                var l = _left.Evaluate();
-                var r = _right.Evaluate();
-                if (l is Text | r is Text)
-                    throw new InvalidExpressionException("Expressions cannot be divided!");
-                var result = Convert.ToDouble(l.Value) - Convert.ToDouble(r.Value);
-                if ((Math.Abs(result % 1)) < double.Epsilon)
-                    return new Number(Convert.ToInt32(result));
-                return new Decimal(result);
             }
         }
 
         class Multiplication : Operator
         {
-            public Multiplication(IExpression left, IExpression right) : base(left, right)
+            public Multiplication(string left, string right) : base("*",left, right)
             {
-            }
-
-            public override Variable Evaluate()
-            {
-                var l = _left.Evaluate();
-                var r = _right.Evaluate();
-                if (l is Text | r is Text)
-                    throw new InvalidExpressionException("Expressions cannot be divided!");
-                var result = Convert.ToDouble(l.Value) * Convert.ToDouble(r.Value);
-                if ((Math.Abs(result % 1)) < double.Epsilon)
-                    return new Number(Convert.ToInt32(result));
-                return new Decimal(result);
             }
         }
 
         class Division : Operator
         {
-            public Division(IExpression left, IExpression right) : base(left, right)
+            public Division(string left, string right) : base("/", left, right)
             {
             }
+        }
 
-            public override Variable Evaluate()
-            {
-                var l = _left.Evaluate();
-                var r = _right.Evaluate();
-                if (l is Text | r is Text)
-                    throw new InvalidExpressionException("Expressions cannot be divided!");
-                var result = Convert.ToDouble(l.Value) / Convert.ToDouble(r.Value);
-                if ((Math.Abs(result % 1)) < double.Epsilon)
-                    return new Number(Convert.ToInt32(result));
-                return new Decimal(result);
-            }
+        class Exponent : Operator
+        {
+            public Exponent(string left, string right) : base("^", left, right) { }
         }
 
         #endregion Operators
@@ -488,7 +585,7 @@ namespace Interpreter
             var curLine = programText.Split(';').First();
             var curLineSplitted = curLine.Split(' ').ToArray();
             if (!curLineSplitted.Any()) curLineSplitted = null;
-
+            
             //Do the parser work
             if (curLineSplitted?[0] == "sub")
             {

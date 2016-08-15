@@ -1,5 +1,11 @@
 # Interpreter
 Yet to come:
-- Control flow
-- Order of Operations (PEMDAS)
+- List types
+- Built in operations (e.g. casting)
+- Programming model support
+- Functions as arguments
+- Return multiple items (tupling)
+- Control flow (if,for,while,pattern matching?)
 - Classes
+- Scopes
+- Comments

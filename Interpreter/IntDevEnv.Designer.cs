@@ -68,7 +68,7 @@ namespace Interpreter
             this.richTextBox1.Location = new System.Drawing.Point(201, 0);
             this.richTextBox1.Margin = new System.Windows.Forms.Padding(30, 3, 30, 3);
             this.richTextBox1.Name = "richTextBox1";
-            this.richTextBox1.Size = new System.Drawing.Size(419, 427);
+            this.richTextBox1.Size = new System.Drawing.Size(584, 427);
             this.richTextBox1.TabIndex = 0;
             this.richTextBox1.Text = resources.GetString("richTextBox1.Text");
             this.richTextBox1.KeyDown += new System.Windows.Forms.KeyEventHandler(this.richTextBox1_KeyDown);
@@ -160,7 +160,7 @@ namespace Interpreter
             this.groupBox1.Controls.Add(this.interpretButton);
             this.groupBox1.Controls.Add(this.debugButton);
             this.groupBox1.Dock = System.Windows.Forms.DockStyle.Right;
-            this.groupBox1.Location = new System.Drawing.Point(620, 0);
+            this.groupBox1.Location = new System.Drawing.Point(785, 0);
             this.groupBox1.Name = "groupBox1";
             this.groupBox1.Size = new System.Drawing.Size(111, 427);
             this.groupBox1.TabIndex = 5;
@@ -222,7 +222,7 @@ namespace Interpreter
             this.toolStripStatusLabel1});
             this.statusStrip1.Location = new System.Drawing.Point(0, 427);
             this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(731, 22);
+            this.statusStrip1.Size = new System.Drawing.Size(896, 22);
             this.statusStrip1.TabIndex = 7;
             this.statusStrip1.Text = "statusStrip1";
             // 
@@ -235,7 +235,7 @@ namespace Interpreter
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(731, 449);
+            this.ClientSize = new System.Drawing.Size(896, 449);
             this.Controls.Add(this.richTextBox1);
             this.Controls.Add(this.splitContainer1);
             this.Controls.Add(this.groupBox1);
