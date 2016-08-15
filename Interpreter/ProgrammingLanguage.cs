@@ -8,8 +8,6 @@ namespace Interpreter
 {
     internal class Interpreter
     {
-        public interface IToken { }
-
         #region Helpers
 
         /// <summary> Returns true if source is a methodCall, passing details onto the methodCall argument, also specifying the rest of the string in</summary>
@@ -42,10 +40,6 @@ namespace Interpreter
             MethodCall methodInfo;
             var splittedSource = source.Split(new [] {' '},3, StringSplitOptions.RemoveEmptyEntries);
 
-            //DEBUG
-            if (splittedSource[0].Contains("somefun"))
-                rest = "";
-
             //Check if source contains a plain string
             if (source[0] == '\"')//plain strings will always start with a quote
             {
@@ -64,18 +58,16 @@ namespace Interpreter
             if (splittedSource[0] == source)
                 return IsMethod(source, out methodInfo, out rest) ? methodInfo.Evaluate() : Variable.Get(splittedSource[0]);
 
-            //ensure first expression is a method. Evaluate method and evaluate right expression (if there is any)
+            //if first expression is a method, evaluate method and evaluate right expression with operator (if there is any)
+            //else evaluate left and right expression with operator.
             if (IsMethod(source, out methodInfo, out rest))
             {
-                if(rest.Length > 0)
-                    throw new Exception("Checkup");
-                return methodInfo.Evaluate();
+                if (rest.Length == 0) return methodInfo.Evaluate();
+                var splittedRest = rest.Split(new[] {' '}, 2, StringSplitOptions.RemoveEmptyEntries);
+                return Operator.Get(splittedRest[0], methodInfo.Evaluate(), Evaluate(splittedRest[1])).Evaluate();
             }
+            return Operator.Get(splittedSource[1], Evaluate(splittedSource[0]), Evaluate(splittedSource[2])).Evaluate();
 
-            //ensure first expression is not a method and evaluate left and right expression with operator
-            if (!IsMethod(splittedSource[0], out methodInfo, out rest))
-                return Operator.Get(splittedSource[1], Evaluate(splittedSource[0]), Evaluate(splittedSource[2])).Evaluate();
-            
             throw new Exception("I don't know what to do now!");
         }
 
@@ -128,6 +120,12 @@ namespace Interpreter
             return listToBeUpdated;
         }
 
+
+        /// <summary>
+        /// Removes the newline character at the end of a string
+        /// </summary>
+        /// <param name="str"></param>
+        /// <returns></returns>
         private static string BeheadString(string str)
         {
             int endIndex = str.IndexOf('\n');
@@ -138,14 +136,15 @@ namespace Interpreter
 
         #region Operators
 
-        public abstract class Operator : IExpression
+        abstract class Operator : IExpression
         {
-            public IExpression Left, Right;
+            protected readonly IExpression _left;
+            protected readonly IExpression _right;
 
             protected Operator(IExpression left, IExpression right)
             {
-                Left = left;
-                Right = right;
+                _left = left;
+                _right = right;
             }
 
             public abstract Variable Evaluate();
@@ -163,7 +162,7 @@ namespace Interpreter
             }
         }
 
-        public class Addition : Operator
+        class Addition : Operator
         {
             public Addition(IExpression left, IExpression right) : base(left, right)
             {
@@ -171,19 +170,19 @@ namespace Interpreter
 
             public override Variable Evaluate()
             {
-                var l = Left.Evaluate();
-                var r = Right.Evaluate();
+                var l = _left.Evaluate();
+                var r = _right.Evaluate();
                 if (l is Number && r is Number)
                     return Variable.Get(((int)l.Value + (int)r.Value).ToString(CultureInfo.CurrentCulture));
                 if ((l is Number | l is Decimal) && (r is Number | r is Decimal))
                     return Variable.Get(((double)l.Value + (double)r.Value).ToString(CultureInfo.CurrentCulture));
                 if (l is Text && r is Text)
-                    return Variable.Get('\"' + l.Value.ToString() + r.Value.ToString() + '\"' );
+                    return Variable.Get('\"' + l.Value.ToString() + r.Value + '\"' );
                 throw new InvalidExpressionException("Expressions cannot be added!");
             }
         }
 
-        public class Subtraction : Operator
+        class Subtraction : Operator
         {
             public Subtraction(IExpression left, IExpression right) : base(left, right)
             {
@@ -191,8 +190,8 @@ namespace Interpreter
 
             public override Variable Evaluate()
             {
-                var l = Left.Evaluate();
-                var r = Right.Evaluate();
+                var l = _left.Evaluate();
+                var r = _right.Evaluate();
                 if (l is Text | r is Text)
                     throw new InvalidExpressionException("Expressions cannot be divided!");
                 var result = Convert.ToDouble(l.Value) - Convert.ToDouble(r.Value);
@@ -202,7 +201,7 @@ namespace Interpreter
             }
         }
 
-        public class Multiplication : Operator
+        class Multiplication : Operator
         {
             public Multiplication(IExpression left, IExpression right) : base(left, right)
             {
@@ -210,8 +209,8 @@ namespace Interpreter
 
             public override Variable Evaluate()
             {
-                var l = Left.Evaluate();
-                var r = Right.Evaluate();
+                var l = _left.Evaluate();
+                var r = _right.Evaluate();
                 if (l is Text | r is Text)
                     throw new InvalidExpressionException("Expressions cannot be divided!");
                 var result = Convert.ToDouble(l.Value) * Convert.ToDouble(r.Value);
@@ -221,7 +220,7 @@ namespace Interpreter
             }
         }
 
-        public class Division : Operator
+        class Division : Operator
         {
             public Division(IExpression left, IExpression right) : base(left, right)
             {
@@ -229,8 +228,8 @@ namespace Interpreter
 
             public override Variable Evaluate()
             {
-                var l = Left.Evaluate();
-                var r = Right.Evaluate();
+                var l = _left.Evaluate();
+                var r = _right.Evaluate();
                 if (l is Text | r is Text)
                     throw new InvalidExpressionException("Expressions cannot be divided!");
                 var result = Convert.ToDouble(l.Value) / Convert.ToDouble(r.Value);
@@ -244,9 +243,9 @@ namespace Interpreter
 
         #region Variables
 
-        public class Variable : IExpression
+        class Variable : IExpression
         {
-            public string Name;
+            private string Name;
             public object Value;
 
             protected Variable(Variable variable)
@@ -272,8 +271,8 @@ namespace Interpreter
             /// </summary>
             public static Variable Get(string obj)
             {
-                if (ProgramVariables.ContainsKey(obj))
-                    return ProgramVariables[obj];
+                if (_programVariables.ContainsKey(obj))
+                    return _programVariables[obj];
                 if (obj.Contains("\""))
                     return new Text(obj.Substring(1, obj.Length - 2)); //to remove quotes
                 if (obj.Contains("."))
@@ -288,9 +287,11 @@ namespace Interpreter
             }
 
             public Variable Evaluate() => this;
+
+            public override string ToString() => Convert.ToString(Value);
         }
 
-        public class Number : Variable
+        class Number : Variable
         {
             public Number(string name, int value) : base(name, value)
             {
@@ -301,7 +302,7 @@ namespace Interpreter
             }
         }
 
-        public class Decimal : Variable
+        class Decimal : Variable
         {
             public Decimal(string name, double value) : base(name, value)
             {
@@ -312,7 +313,7 @@ namespace Interpreter
             }
         }
 
-        public class Text : Variable
+        class Text : Variable
         {
             public Text(string name, string value) : base(name, value)
             {
@@ -324,29 +325,31 @@ namespace Interpreter
         }
 
         #endregion Variables
-
+        
         #region Expressions
 
-        public interface IExpression : IToken
+        interface IExpression
         {
             Variable Evaluate();
         }
 
-        public class ReturnStmt : IExpression
+        class ReturnStmt : IExpression
         {
-            public string ReturnValue;
+            private readonly string _returnValue;
 
             public ReturnStmt(string val)
             {
-                ReturnValue = val;
+                _returnValue = val;
             }
 
-            public Variable Evaluate() => Interpreter.Evaluate(ReturnValue);
+            public Variable Evaluate() => Interpreter.Evaluate(_returnValue);
+
+            public override string ToString() => "return " + _returnValue;
         }
 
-        public class MethodDeclaration : IExpression
+        class MethodDeclaration : IExpression
         {
-            public string Name;
+            public string Name { get; }
             public string[] Parameters { get; }
             public IEnumerable<IExpression> Body { get; }
 
@@ -359,18 +362,18 @@ namespace Interpreter
 
             public Variable Evaluate()
             {
-                ProgramMethods.Add(Name, this);
+                _programMethods.Add(Name, this);
                 return null;
             }
 
-            public void Call(Variable[] args, out Variable returnVariable)
+            public Variable Call(Variable[] args)
             {
                 //Load arguments into program
                 for (var i = 0; i < Parameters.Length; i++)
-                    ProgramVariables.Add(Parameters[i], args[i]);
+                    _programVariables.Add(Parameters[i], args[i]);
 
                 //Evaluate function
-                returnVariable = null;
+                Variable returnVariable = null;
                 foreach (var expression in Body)
                 {
                     if (expression is ReturnStmt)
@@ -383,17 +386,17 @@ namespace Interpreter
                 }
 
                 //Remove arguments from program
-                Parameters.ToList().ForEach(x => ProgramVariables.Remove(x));
+                Parameters.ToList().ForEach(x => _programVariables.Remove(x));
+                return returnVariable;
             }
 
             public override string ToString() => string.Format("fun {0}({1}) { {2}}", Name, Parameters, Body.Select(expr => expr.ToString() + ";\n"));
         }
 
-        public class MethodCall : IExpression
+        class MethodCall : IExpression
         {
-            public string TargetMethod;
-            public IEnumerable<string> Arguments;
-            public Variable ReturnVariable;
+            public string TargetMethod { get; }
+            public IEnumerable<string> Arguments { get; }
             
             public MethodCall(string methodName, IEnumerable<string> argumentNames)
             {
@@ -401,23 +404,17 @@ namespace Interpreter
                 Arguments = argumentNames;
             }
 
-            public Variable Evaluate()
-            {
-                ProgramMethods[TargetMethod].Call(Arguments.Select(Variable.Get).ToArray(), out ReturnVariable);
-                return ReturnVariable;
-            }
+            public Variable Evaluate() => _programMethods[TargetMethod].Call(Arguments.Select(Variable.Get).ToArray());
 
-            public static MethodCall Empty()
-            {
-                return new MethodCall(null, null);
-            }
+            public static MethodCall Empty() => new MethodCall(null, null);
 
             public override string ToString() => string.Format("{0}({1})", TargetMethod, Arguments);
         }
 
-        public class VariableDeclaration : IExpression
+        class VariableDeclaration : IExpression
         {
-            public string Name, Value;
+            public string Name { get; }
+            public string Value { get; }
 
             public VariableDeclaration(string name, string value)
             {
@@ -427,17 +424,17 @@ namespace Interpreter
 
             public Variable Evaluate()
             {
-                ProgramVariables.Add(Name, Variable.CreateFromVariable(Name, Interpreter.Evaluate(Value)));
+                _programVariables.Add(Name, Variable.CreateFromVariable(Name, Interpreter.Evaluate(Value)));
                 return null;
             }
 
             public override string ToString() => ($"var {Name} = {Value}");
         }
 
-        public class VariableAssignment : IExpression
+        class VariableAssignment : IExpression
         {
-            public string TargetName;
-            public string SourceName;
+            public string TargetName { get; }
+            public string SourceName { get; }
 
             public VariableAssignment(string target, string source)
             {
@@ -447,7 +444,7 @@ namespace Interpreter
 
             public Variable Evaluate()
             {
-                ProgramVariables[TargetName].Value = Interpreter.Evaluate(SourceName).Value;
+                _programVariables[TargetName].Value = Interpreter.Evaluate(SourceName).Value;
                 return null;
             }
 
@@ -458,13 +455,13 @@ namespace Interpreter
 
         #region Semantics
 
-        public static VariableDeclaration MakeVarDecl(string[] splittedExpression) =>
+        private static VariableDeclaration MakeVarDecl(string[] splittedExpression) =>
             new VariableDeclaration(splittedExpression[1], string.Join(" ", splittedExpression.Skip(3)));
 
-        public static VariableAssignment MakeVarAss(string[] splittedExpression) =>
+        private static VariableAssignment MakeVarAss(string[] splittedExpression) =>
             new VariableAssignment(splittedExpression[0], splittedExpression.Skip(2).Aggregate( (x,y) => x + " " + y));
 
-        public static MethodDeclaration MakeMethodDecl(string signature, string body)
+        private static MethodDeclaration MakeMethodDecl(string signature, string body)
         {
             IEnumerable<string> args;
             var methodName = ExtractMethodNameAndArguments(signature, out args);
@@ -472,16 +469,16 @@ namespace Interpreter
             return new MethodDeclaration(methodName, args.ToArray(), MakeProgram(new List<IExpression>(), functionBody));
         }
 
-        public static MethodCall MakeMethodCall(string expression)
+        private static MethodCall MakeMethodCall(string expression)
         {
             IEnumerable<string> args;
             var methodName = ExtractMethodNameAndArguments(expression, out args);
             return new MethodCall(methodName, args);
         }
         
-        public static ReturnStmt MakeReturnStmt(string expression) => new ReturnStmt(expression.Split(new []{' '}, 2, StringSplitOptions.RemoveEmptyEntries)[1]);
+        private static ReturnStmt MakeReturnStmt(string expression) => new ReturnStmt(expression.Split(new []{' '}, 2, StringSplitOptions.RemoveEmptyEntries)[1]);
 
-        public static IEnumerable<IExpression> MakeProgram(List<IExpression> programCode, string programText)
+        private static IEnumerable<IExpression> MakeProgram(List<IExpression> programCode, string programText)
         {
             if (programText.Length == 0)
                 return programCode;
@@ -538,7 +535,7 @@ namespace Interpreter
 
             public static ProgramError Empty() => new ProgramError(-1, "", "Unknown");
 
-            public bool IsSet() => (this.LineNumber >= 0);
+            public bool IsSet() => (LineNumber >= 0);
 
 
             public class LineEndingError : ProgramError
@@ -557,7 +554,7 @@ namespace Interpreter
         /// </summary>
         /// <param name="code"></param>
         /// <returns></returns>
-        public static ProgramError CheckLineEndings(string code)
+        private static ProgramError CheckLineEndings(string code)
         {
             var scannableCode = code.Replace(" ", "");
             var acceptedLineEndings = new[] {';', '}', '{', '\n', '\t'};
@@ -574,7 +571,7 @@ namespace Interpreter
         /// </summary>
         /// <param name="code"></param>
         /// <returns></returns>
-        public static ProgramError CheckEmptyFunctions(string code)
+        private static ProgramError CheckEmptyFunctions(string code)
         {
             var scannableCode = code.Replace(" ", "").Replace('\t'.ToString(), "").Replace('\n'.ToString(), "");
             for (int lineNumber = 0, firstBracket = scannableCode.IndexOf('{'), secondBracket = scannableCode.IndexOf('}', firstBracket), functionNameStart = scannableCode.LastIndexOf("sub", firstBracket, StringComparison.Ordinal) + 3;
@@ -586,7 +583,7 @@ namespace Interpreter
             return ProgramError.Empty();
         }
 
-        public static bool RunCodeInspection(string code, out ProgramError exceptionInfo)
+        private static bool RunCodeInspection(string code, out ProgramError exceptionInfo)
         {
             exceptionInfo = CheckLineEndings(code);
             if (exceptionInfo.IsSet())
@@ -603,44 +600,33 @@ namespace Interpreter
 
         #region Main Program Management
 
-        /** Programming rules:
-         * - Variables are declared using the 'var' keyword
-         * - Variables are assigned using the '=' operator
-         * - Decimal variables are signed by the '.' sign
-         * - Methods are declared using the 'fun' keyword, using the '()' operator with parameters inside, with it's body between '{}'
-         * - Methods are called using the '()' operator with arguments separated by ','
-         *
-         * Variable Declaration:
-         * var <variable_name> = <future_value>
-         *
-         * Variable Assignment:
-         * <variable_name> = <future_value>
-         *
-         * MethodDeclaration Declaration:
-         * fun <function_name> ( <parameter_name> , ... ) { var x = 5; }
-         *
-         */
+        private static readonly char[] IllegalStartingCharacters = { '\n', '\t', ' ' };
+        private static string _inputCode;
+        private static List<IExpression> _programCode;
+        private static ProgramError _programStartupError;
+        private static Dictionary<string, Variable> _programVariables;
+        private static Dictionary<string, MethodDeclaration> _programMethods;
 
-        public static char[] IllegalStartingCharacters = { '\n', '\t', ' ' };
-        public static string InputCode;
-        public static ProgramError ProgramStartupError;
-        public static Dictionary<string, Variable> ProgramVariables;
-        public static Dictionary<string, MethodDeclaration> ProgramMethods;
-        public static List<IExpression> ProgramCode;
+        public static IEnumerable<KeyValuePair<string,string>> GetProgramVariables() => _programVariables.Select(x => new KeyValuePair<string, string>(x.Key, Convert.ToString(x.Value)));
+
+        public static IEnumerable<KeyValuePair<string, int>> GetProgramMethods() => _programMethods.Select(
+            x => new KeyValuePair<string, int>(x.Value.Name, x.Value.Body.Count()));
+
+        public static IEnumerable<string> GetMethodBody(string methodName) => _programMethods[methodName].Body.Select(x => x.ToString());
 
         private static ProgramError Init(string code, out bool success)
         {
             //Code analysis
-            InputCode = code;
-            ProgramStartupError = ProgramError.Empty();
-            success = RunCodeInspection(InputCode, out ProgramStartupError);
+            _inputCode = code;
+            _programStartupError = ProgramError.Empty();
+            success = RunCodeInspection(_inputCode, out _programStartupError);
             if(!success)
-                return ProgramStartupError;
+                return _programStartupError;
 
             //Initialize virtual machine
-            ProgramMethods = new Dictionary<string, MethodDeclaration>();
-            ProgramVariables = new Dictionary<string, Variable>();
-            ProgramCode = new List<IExpression>(MakeProgram(new List<IExpression>(), code));
+            _programMethods = new Dictionary<string, MethodDeclaration>();
+            _programVariables = new Dictionary<string, Variable>();
+            _programCode = new List<IExpression>(MakeProgram(new List<IExpression>(), code));
             return null;
         }
 
@@ -656,15 +642,15 @@ namespace Interpreter
 
         public static bool StepDebug()
         {
-            if (_ip == ProgramCode.Count) return false;
-            ProgramCode[_ip].Evaluate();
+            if (_ip == _programCode.Count) return false;
+            _programCode[_ip].Evaluate();
             _ip++;
             return true;
         }
 
         public static void ExitDebug()
         {
-            _ip = ProgramCode.Count;
+            _ip = _programCode.Count;
         }
 
         private static bool Interpret(string code, out ProgramError errorBuffer)
@@ -674,7 +660,7 @@ namespace Interpreter
             if (!success)
                 return false;
 
-            ProgramCode.ForEach(x => x.Evaluate());
+            _programCode.ForEach(x => x.Evaluate());
             return true;
         }
 
@@ -683,9 +669,9 @@ namespace Interpreter
             switch (action)
             {
                 case "interpret":
-                    return Interpret(code, out ProgramStartupError) ? null : ProgramStartupError;
+                    return Interpret(code, out _programStartupError) ? null : _programStartupError;
                 case "debug":
-                    return StartDebug(code, out ProgramStartupError) ? null : ProgramStartupError;
+                    return StartDebug(code, out _programStartupError) ? null : _programStartupError;
                 default:
                     return ProgramError.Empty();
             }

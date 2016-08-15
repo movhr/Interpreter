@@ -31,20 +31,20 @@ namespace Interpreter
             //Do the action and add program variables + methods
             var initResult = Interpreter.Start(richTextBox1.Text, "interpret");
             if (initResult == null)
-            {
-                Interpreter.ProgramVariables.ToList().ForEach(pair => programVariablesCollection.Rows.Add(new DataGridViewRow
+            {   
+                Interpreter.GetProgramVariables().ToList().ForEach(pair => programVariablesCollection.Rows.Add(new DataGridViewRow
                 {
                     Cells = {
                     new DataGridViewTextBoxCell {Value = pair.Key},
-                    new DataGridViewTextBoxCell {Value = pair.Value.Value}
+                    new DataGridViewTextBoxCell {Value = pair.Value}
                 }
                 }));
-                Interpreter.ProgramMethods.ToList().ForEach(pair => programMethodsCollection.Rows.Add(new DataGridViewRow
+                Interpreter.GetProgramMethods().ToList().ForEach(pair => programMethodsCollection.Rows.Add(new DataGridViewRow
                 {
                     Cells =
                 {
                     new DataGridViewTextBoxCell {Value = pair.Key},
-                    new DataGridViewTextBoxCell {Value = pair.Value.Body.Count()}
+                    new DataGridViewTextBoxCell {Value = pair.Value}
                 }
                 }));
 
