@@ -123,13 +123,14 @@ var sometext = "hello";
 var precision = 1.3000;
 var newval = 10;
 
+#returns one
 sub one(){
 	return 1;
 }
 
 sub somefun(avalue, bvalue) { 
-	avalue = 10; 
-	return bvalue * avalue;
+	var t = avalue + 1;
+	return bvalue * t;
 }
 
 newval = newval * aval;

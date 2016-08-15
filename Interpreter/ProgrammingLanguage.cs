@@ -77,7 +77,7 @@ namespace Interpreter
                 var firstExpression = '\"' + Substring(source, 1, secondQuote-1) + '\"'; //take plain string out
                 splittedSource = new []{firstExpression}.Concat(source.Remove(0, firstExpression.Length).Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries)).ToArray(); //glue the string back together
                 if (splittedSource.Count() != 1) throw new Exception("Unhandled case");
-                return new Text(splittedSource[0]);
+                return new Text(Substring(splittedSource[0], 1, splittedSource[0].Length-2));//to remove quotes
             }
 
             //source can be a single variable or a method (empty or without space-separated arguments)
@@ -238,7 +238,7 @@ namespace Interpreter
 
                 if(_vLeft is Text | _vRight is Text)
                     if (Op == "+")
-                        return new Text(string.Concat(Convert.ToString(_vLeft.Value), Convert.ToString(_vRight.Value)));
+                        return new Text(string.Concat((string)_vLeft.Value, (string)_vRight.Value));
                     else
                         throw new InvalidExpressionException("");
 
@@ -447,8 +447,9 @@ namespace Interpreter
         class MethodDeclaration : IExpression
         {
             public string Name { get; }
-            public string[] Parameters { get; }
+            private string[] Parameters { get; }
             public IEnumerable<IExpression> Body { get; }
+            private List<string> localVariables; 
 
             public MethodDeclaration(string name, string[] parameters, IEnumerable<IExpression> body)
             {
@@ -465,6 +466,9 @@ namespace Interpreter
 
             public Variable Call(Variable[] args)
             {
+                //Reserve space for local variables
+                localVariables = new List<string>();
+                
                 //Load arguments into program
                 for (var i = 0; i < Parameters.Length; i++)
                     _programVariables.Add(Parameters[i], args[i]);
@@ -473,6 +477,9 @@ namespace Interpreter
                 Variable returnVariable = null;
                 foreach (var expression in Body)
                 {
+                    if(expression is VariableDeclaration)
+                        localVariables.Add( ((VariableDeclaration)expression).Name );
+
                     if (expression is ReturnStmt)
                     {
                         returnVariable = expression.Evaluate();
@@ -482,7 +489,8 @@ namespace Interpreter
                     expression.Evaluate();
                 }
 
-                //Remove arguments from program
+                //Remove arguments and local variables from program
+                localVariables.ForEach(x => _programVariables.Remove(x));
                 Parameters.ToList().ForEach(x => _programVariables.Remove(x));
                 return returnVariable;
             }
@@ -579,15 +587,20 @@ namespace Interpreter
         {
             if (programText.Length == 0)
                 return programCode;
-            if (IllegalStartingCharacters.Contains(programText[0]))
-                return MakeProgram(programCode, programText.Remove(0, 1));
+
+            programText = programText.TrimStart('\t', ' ', '\n');
 
             var curLine = programText.Split(';').First();
             var curLineSplitted = curLine.Split(' ').ToArray();
-            if (!curLineSplitted.Any()) curLineSplitted = null;
-            
+
             //Do the parser work
-            if (curLineSplitted?[0] == "sub")
+            if (curLine[0] == '#')
+                return MakeProgram(programCode, programText.Remove(0, programText.IndexOf('\n')));
+
+            if (!curLineSplitted.Any())
+                throw new ArgumentException("Unhandled case");
+
+            if (curLineSplitted[0] == "sub")
             {
                 //Extract function body
                 var iStart = programText.IndexOf("{", StringComparison.Ordinal);
@@ -595,14 +608,15 @@ namespace Interpreter
 
                 return MakeProgram(AddExpressionToList(programCode, MakeMethodDecl(curLine, programText.Substring(iStart, iEnd - iStart))), programText.Remove(0, iEnd));
             }
-            if (curLineSplitted?[0] == "var" && curLineSplitted?[2] == "=")
+            if (curLineSplitted[0] == "var" && curLineSplitted[2] == "=")
                 return MakeProgram(AddExpressionToList(programCode, MakeVarDecl(curLineSplitted)), BeheadString(programText));
+            if (curLineSplitted.Count() > 1 && curLineSplitted[1] == "=")
+                return MakeProgram(AddExpressionToList(programCode, MakeVarAss(curLineSplitted)), BeheadString(programText));
+            if (curLineSplitted[0] == "return")
+                return MakeProgram(AddExpressionToList(programCode, MakeReturnStmt(curLine)),BeheadString(programText));
             if (curLine.Contains("(") && curLine.Contains(")"))
                 return MakeProgram(AddExpressionToList(programCode, MakeMethodCall(curLine)), BeheadString(programText));
-            if (curLineSplitted?[1] == "=")
-                return MakeProgram(AddExpressionToList(programCode, MakeVarAss(curLineSplitted)), BeheadString(programText));
-            if (curLineSplitted?[0] == "return")
-                return MakeProgram(AddExpressionToList(programCode, MakeReturnStmt(curLine)),BeheadString(programText));
+
             throw new NotSupportedException($"Unhandled line of code: {curLine}");
         }
 
@@ -653,12 +667,12 @@ namespace Interpreter
         /// <returns></returns>
         private static ProgramError CheckLineEndings(string code)
         {
-            var scannableCode = code.Replace(" ", "");
+            var scannableCode = code.Replace(" ", "").Replace('\t'.ToString(), "").Replace(new [] {'\n','n'}.ToString(),'\n'.ToString());
             var acceptedLineEndings = new[] {';', '}', '{', '\n', '\t'};
             for (int lineNumber = 0, lastLineEnding = 0, lineEnding = scannableCode.IndexOf('\n'); 
                 lineEnding != -1; 
                 lastLineEnding = lineEnding, lineEnding = scannableCode.IndexOf('\n', lastLineEnding+1), lineNumber++)
-                if (!acceptedLineEndings.Contains(scannableCode[lineEnding - 1]))
+                if (!acceptedLineEndings.Contains(scannableCode[lineEnding - 1]) && (scannableCode[lastLineEnding + 1] != '#'))
                     return new ProgramError.LineEndingError(lineNumber,Substring(scannableCode, lastLineEnding, lineEnding));
             return ProgramError.Empty();
         }
@@ -696,8 +710,7 @@ namespace Interpreter
         #endregion
 
         #region Main Program Management
-
-        private static readonly char[] IllegalStartingCharacters = { '\n', '\t', ' ' };
+        
         private static string _inputCode;
         private static List<IExpression> _programCode;
         private static ProgramError _programStartupError;
